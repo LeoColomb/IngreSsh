@@ -1,13 +1,10 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
 
-	"github.com/gliderlabs/ssh"
-	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -25,9 +22,7 @@ import (
 
 	ing "kuberstein.io/ingressh/api/v1"
 	"kuberstein.io/ingressh/internal/controller"
-	"kuberstein.io/ingressh/internal/k8s"
 	"kuberstein.io/ingressh/internal/server"
-	"kuberstein.io/ingressh/internal/types"
 )
 
 var (
@@ -116,48 +111,13 @@ func main() {
 
 	setupLog.Info("Starting SSH server...")
 	eg.Go(func() error {
-		return startSshServer(sshConfig, egCtx)
+		if err := server.Start(sshConfig, egCtx); err != nil {
+			return fmt.Errorf("problem running SSH server: %v", err)
+		}
+		return nil
 	})
 
 	if err := eg.Wait(); err != nil {
 		setupLog.Error(err, "problem starting services")
-	}
-}
-
-func startSshServer(sshConfigPath string, ctx context.Context) error {
-
-	conf, err := types.GetServerConf(sshConfigPath)
-	if err != nil {
-		return err
-	}
-
-	kube := k8s.ClientImpl{}
-	if err := kube.Init(ctrl.GetConfigOrDie()); err != nil {
-		return fmt.Errorf("unable to create k8s client: %v", err)
-	}
-
-	pemBytes, err := os.ReadFile(conf.HostKeyFile)
-	if err != nil {
-		return fmt.Errorf("unable to read host key file %s: %v", conf.HostKeyFile, err)
-	}
-
-	signer, err := gossh.ParsePrivateKey(pemBytes)
-	if err != nil {
-		return fmt.Errorf("unable to parse private key: %v", err)
-	}
-
-	srv := &ssh.Server{
-		Addr:             conf.BindAddress,
-		PublicKeyHandler: server.PublicKeyAuthHandler,
-		Handler:          server.GetHandler(&kube, conf),
-		HostSigners:      []ssh.Signer{signer},
-	}
-
-	setupLog.Info("Starting ssh ingress server", "address", conf.BindAddress)
-
-	go srv.ListenAndServe()
-	for {
-		<-ctx.Done()
-		return srv.Close()
 	}
 }
