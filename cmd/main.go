@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 
 	"github.com/gliderlabs/ssh"
@@ -134,12 +133,7 @@ func startSshServer(sshConfigPath string, ctx context.Context) error {
 
 	kube := k8s.ClientImpl{}
 	if err := kube.Init(ctrl.GetConfigOrDie()); err != nil {
-		return fmt.Errorf("unable to create K8s client: %v", err)
-	}
-
-	ln, err := net.Listen("tcp", conf.BindAddress)
-	if err != nil {
-		return fmt.Errorf("unable to listen socket at %s: %v", conf.BindAddress, err)
+		return fmt.Errorf("unable to create k8s client: %v", err)
 	}
 
 	pemBytes, err := os.ReadFile(conf.HostKeyFile)
@@ -153,6 +147,7 @@ func startSshServer(sshConfigPath string, ctx context.Context) error {
 	}
 
 	srv := &ssh.Server{
+		Addr:             conf.BindAddress,
 		PublicKeyHandler: server.PublicKeyAuthHandler,
 		Handler:          server.GetHandler(&kube, conf),
 		HostSigners:      []ssh.Signer{signer},
@@ -160,11 +155,9 @@ func startSshServer(sshConfigPath string, ctx context.Context) error {
 
 	setupLog.Info("Starting ssh ingress server", "address", conf.BindAddress)
 
-	go srv.Serve(ln)
+	go srv.ListenAndServe()
 	for {
-		select {
-		case <-ctx.Done():
-			return srv.Close()
-		}
+		<-ctx.Done()
+		return srv.Close()
 	}
 }
