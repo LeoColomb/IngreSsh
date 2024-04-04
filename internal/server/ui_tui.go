@@ -3,9 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
-	"io"
 	"sort"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,46 +13,11 @@ import (
 	"kuberstein.io/ingressh/internal/types"
 )
 
-const (
-	defaultListHeight = 20
-	defaultListWidth  = 60
-)
-
-var (
-	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
-	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
-	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
-	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
-)
+var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 type item string
 
 func (i item) FilterValue() string { return "" }
-
-type itemDelegate struct{}
-
-func (d itemDelegate) Height() int                             { return 1 }
-func (d itemDelegate) Spacing() int                            { return 0 }
-func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(item)
-	if !ok {
-		return
-	}
-
-	str := fmt.Sprintf("%d. %s", index+1, i)
-
-	fn := itemStyle.Render
-	if index == m.Index() {
-		fn = func(s ...string) string {
-			return selectedItemStyle.Render("> " + strings.Join(s, " "))
-		}
-	}
-
-	fmt.Fprint(w, fn(str))
-}
 
 type selectionState int
 
@@ -68,8 +31,6 @@ type model struct {
 	state      selectionState
 	stateNoWay error
 
-	width int
-
 	listNamespaces  list.Model
 	listPods        list.Model
 	listPodsConfigs []podSshConfig
@@ -80,7 +41,6 @@ type model struct {
 	choicePodConfig podSshConfig
 	choiceContainer string
 
-	quitting          bool
 	quittingWithError error
 
 	targetAuth authz
@@ -88,11 +48,10 @@ type model struct {
 }
 
 func (m model) Init() tea.Cmd {
-	m.width = defaultListWidth
 	return nil
 }
 
-func (m *model) activeList() *list.Model {
+func (m model) activeList() *list.Model {
 	var a *list.Model
 	switch m.state {
 	case selectNamespace:
@@ -105,37 +64,14 @@ func (m *model) activeList() *list.Model {
 	return a
 }
 
-func (m model) setupList(items []list.Item, title string) list.Model {
-	l := list.New(items, itemDelegate{}, m.width, defaultListHeight)
+func setupList(items []list.Item, title string) list.Model {
+	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
 	l.Title = title
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.Styles.Title = titleStyle
-	l.Styles.PaginationStyle = paginationStyle
-	l.Styles.HelpStyle = helpStyle
 	return l
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-
 	activeList := m.activeList()
-
-	// Common key handlers
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		activeList.SetWidth(msg.Width)
-		return m, nil
-
-	case tea.KeyMsg:
-		switch keypress := msg.String(); keypress {
-		case "ctrl+c":
-			m.quitting = true
-			return m, tea.Quit
-		}
-	}
-
-	// Key handlers that depends on the state
 
 	// "Nothing here" screen
 	if m.stateNoWay != nil {
@@ -149,18 +85,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Regular wizard lists state
+	// Key handlers
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		h, v := docStyle.GetFrameSize()
+		activeList.SetSize(msg.Width-h, msg.Height-v)
 
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
-
+		case "q", "ctrl+c":
+			return m, tea.Quit
 		case "enter":
 			i, ok := activeList.SelectedItem().(item)
 			if !ok {
 				return m, tea.Quit
 			}
-
 			switch m.state {
 			case selectNamespace:
 				m.stateNoWay = m.startSelectPodScreen()
@@ -170,17 +109,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.choiceContainer = string(i)
 				return m, tea.Quit
 			}
-			if m.quitting {
-				return m, tea.Quit
-			}
 			return m, nil
-
 		case "esc":
 			// Escape brings us to the previous state of the selection wizard
 			switch m.state {
-			case selectNamespace:
-				m.quitting = true
-				return m, tea.Quit
 			case selectPod:
 				m.state = selectNamespace
 				m.choiceNamespace = ""
@@ -190,7 +122,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-
 	}
 
 	var cmd tea.Cmd
@@ -199,36 +130,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-
 	if m.stateNoWay != nil {
-		return quitTextStyle.Render(fmt.Sprintf(
+		return docStyle.Render(fmt.Sprintf(
 			"No authorized objects: %s\n\nPress any key to select a different option\n", m.stateNoWay))
 	}
 
 	if m.choiceContainer != "" {
-		return quitTextStyle.Render(fmt.Sprintf(
+		return docStyle.Render(fmt.Sprintf(
 			"Proceed with %s/%s/%s...\n", m.choiceNamespace, m.choicePod, m.choiceContainer))
 	}
 	if m.quittingWithError != nil {
-		return quitTextStyle.Render(fmt.Sprintf("Error setting up SSH session: %v\n", m.quittingWithError))
-	}
-	if m.quitting {
-		return quitTextStyle.Render("SSH session setup has been cancelled\n")
+		return docStyle.Render(fmt.Sprintf("Error setting up SSH session: %v\n", m.quittingWithError))
 	}
 
 	activeList := m.activeList()
-	return "\n" + activeList.View()
+	return docStyle.Render(activeList.View())
 }
 
 func (m *model) startSelectPodScreen() error {
-
 	targetNamespace := string(m.listNamespaces.SelectedItem().(item))
 	podConfigs, err := m.targetAuth.GetPods(targetNamespace, m.hint.Pod)
 	if err != nil {
 		return err
 	}
 	if len(podConfigs) == 0 {
-		return fmt.Errorf("No authorized pods in ns %s", targetNamespace)
+		return fmt.Errorf("no authorized pods in namespace %s", targetNamespace)
 	}
 
 	m.choiceNamespace = targetNamespace
@@ -243,7 +169,7 @@ func (m *model) startSelectPodScreen() error {
 		items = append(items, item(p.pod.Name))
 	}
 
-	m.listPods = m.setupList(items, fmt.Sprintf("Select a pod in the ns '%s'", targetNamespace))
+	m.listPods = setupList(items, fmt.Sprintf("Pods in the namespace `%s`", targetNamespace))
 	m.state = selectPod
 
 	// When there is actually no choice - select the only element automatically
@@ -259,7 +185,6 @@ func (m *model) startSelectPodScreen() error {
 }
 
 func (m *model) startSelectContainerScreen() error {
-
 	podConfigIdx := m.listPods.Index()
 
 	selectedPodConfig := m.listPodsConfigs[podConfigIdx]
@@ -269,9 +194,8 @@ func (m *model) startSelectContainerScreen() error {
 	if err != nil {
 		return err
 	}
-
 	if len(containers) == 0 {
-		return fmt.Errorf("No authorized containers in pod %s", pod.Name)
+		return fmt.Errorf("no authorized containers in pod %s", pod.Name)
 	}
 
 	m.choicePod = string(m.listPods.SelectedItem().(item))
@@ -283,7 +207,7 @@ func (m *model) startSelectContainerScreen() error {
 		items = append(items, item(c))
 	}
 
-	m.listContainers = m.setupList(items, fmt.Sprintf("Select a container in %s/%s", m.choiceNamespace, m.choicePod))
+	m.listContainers = setupList(items, fmt.Sprintf("Containers in `%s`/`%s`", m.choiceNamespace, m.choicePod))
 	m.state = selectContainer
 
 	// When there is actually no choice - select the only element automatically
@@ -291,7 +215,6 @@ func (m *model) startSelectContainerScreen() error {
 	if len(containers) == 1 {
 		m.listContainers.Select(0)
 		m.choiceContainer = containers[0]
-		m.quitting = true
 		return nil
 	}
 
@@ -299,13 +222,12 @@ func (m *model) startSelectContainerScreen() error {
 }
 
 func (m *model) startSelectNamespaceScreen() error {
-
 	namespaces, err := m.targetAuth.GetNamespaces(m.hint.Namespace)
 	if err != nil {
 		return err
 	}
 	if len(namespaces) == 0 {
-		return errors.New("No authorized namespaces")
+		return errors.New("no authorized namespaces")
 	}
 
 	sort.Strings(namespaces)
@@ -314,7 +236,7 @@ func (m *model) startSelectNamespaceScreen() error {
 		items = append(items, item(ns))
 	}
 
-	m.listNamespaces = m.setupList(items, "Select the namespace")
+	m.listNamespaces = setupList(items, "Namespaces")
 	m.state = selectNamespace
 
 	// When there is actually no choice - select the only element automatically
@@ -344,7 +266,6 @@ func (m model) result() (types.SshTarget, podSshConfig) {
 func interactive(sess ssh.Session, targetAuth authz, hint types.SshTarget) (
 	types.SshTarget, podSshConfig, error,
 ) {
-
 	m := model{
 		targetAuth: targetAuth,
 		hint:       hint,
