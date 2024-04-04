@@ -57,7 +57,7 @@ func (r *IngreSshReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Init ssh configuration object from the ingress object
 	sshConfig := &types.SshConfig{
-		IngreSshSpec: *&ingreSsh.Spec,
+		IngreSshSpec: ingreSsh.Spec,
 		Namespace:    req.Namespace,
 	}
 
@@ -71,7 +71,6 @@ func (r *IngreSshReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				return ctrl.Result{}, err
 			}
 		}
-
 	} else {
 
 		// The object is being deleted

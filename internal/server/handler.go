@@ -14,9 +14,7 @@ import (
 // The user is authorized at this moment, the list of authorized configurations
 // is stored in the session context.
 func GetHandler(kube *k8s.ClientImpl, conf *types.ServerConfig) func(sess ssh.Session) {
-
 	return func(sess ssh.Session) {
-
 		// User may hint the target route with login name of SSH session.
 		hint := types.SshTarget{}
 		hint.InitFromUsername(sess.User())
@@ -38,12 +36,12 @@ func GetHandler(kube *k8s.ClientImpl, conf *types.ServerConfig) func(sess ssh.Se
 		}
 		if err != nil {
 			fmt.Fprintf(sess, "Error: %s\n", err)
-			sess.Exit(10)
+			_ = sess.Exit(10)
 			return
 		}
 		if !target.IsComplete() {
 			fmt.Fprintf(sess, "No container selected\n")
-			sess.Exit(13)
+			_ = sess.Exit(13)
 			return
 		}
 
@@ -65,14 +63,14 @@ func GetHandler(kube *k8s.ClientImpl, conf *types.ServerConfig) func(sess ssh.Se
 				// in the Debug mode, where the docker image entry point
 				// could be used.
 				fmt.Fprintf(sess, "Command is not specified\n")
-				sess.Exit(2)
+				_ = sess.Exit(2)
 				return
 			}
 			log.Infof("Executing %v in the container %s", command, target.Container)
 			err := k8s.ExecInContainer(kube, &pod, target.Container, sess, command)
 			if err != nil {
 				log.Errorln(err)
-				sess.Exit(3)
+				_ = sess.Exit(3)
 				return
 			}
 		} else {
@@ -81,7 +79,7 @@ func GetHandler(kube *k8s.ClientImpl, conf *types.ServerConfig) func(sess ssh.Se
 				kube, &pod, target.Container, targetConfig)
 			if err != nil {
 				log.Errorln(err)
-				sess.Exit(2)
+				_ = sess.Exit(2)
 				return
 			}
 
@@ -91,7 +89,7 @@ func GetHandler(kube *k8s.ClientImpl, conf *types.ServerConfig) func(sess ssh.Se
 				err = k8s.ExecInContainer(kube, pod, accessContainerName, sess, sess.Command())
 				if err != nil {
 					log.Errorln(err)
-					sess.Exit(3)
+					_ = sess.Exit(3)
 					return
 				}
 			} else {
@@ -100,12 +98,12 @@ func GetHandler(kube *k8s.ClientImpl, conf *types.ServerConfig) func(sess ssh.Se
 				err = k8s.AttachSshSessionTerminal(kube, pod, accessContainerName, sess)
 				if err != nil {
 					log.Errorln(err)
-					sess.Exit(3)
+					_ = sess.Exit(3)
 					return
 				}
 			}
 		}
 
-		sess.Exit(0)
+		_ = sess.Exit(0)
 	}
 }
