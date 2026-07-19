@@ -15,14 +15,14 @@ func GetServerConf() *ServerConfig {
 	return &ServerConfig{
 		BindAddress: getEnv("SSH_BIND_ADDRESS", ":8022"),
 		HostKeyFile: getEnv("HOST_KEY_FILE", "/secret/ssh-privatekey"),
-		DebugImage: getEnv("DEBUG_IMAGE", "busybox"),
+		DebugImage:  getEnv("DEBUG_IMAGE", "busybox"),
 	}
 }
 
 func getEnv(key string, defaultVal string) string {
-    if value, exists := os.LookupEnv(key); exists {
+	if value, exists := os.LookupEnv(key); exists {
 		return value
-    }
+	}
 
-    return defaultVal
+	return defaultVal
 }

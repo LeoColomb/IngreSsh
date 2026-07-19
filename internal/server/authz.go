@@ -10,11 +10,9 @@ import (
 	"kuberstein.io/ingressh/internal/types"
 )
 
-var (
-	// ErrAuthorizationFailed is returned if the user is not authorized
-	// to access the specified object.
-	ErrAuthorizationFailed = errors.New("authorization failed")
-)
+// ErrAuthorizationFailed is returned if the user is not authorized
+// to access the specified object.
+var ErrAuthorizationFailed = errors.New("authorization failed")
 
 // podSshConfig is a tuple binding together target pod and corresponding
 // SSH config, as a result of the authorization.

@@ -210,7 +210,7 @@ More information can be found via the [Kubebuilder Documentation](https://book.k
 The project is implemented with:
 
 * [kubebuilder](https://book.kubebuilder.io/)
-* [GliderLabs](https://github.com/gliderlabs/ssh) SSH libraries
+* CharmBracelet [wish](https://github.com/charmbracelet/wish) SSH libraries
 * CharmBracelet [bubbletea](https://github.com/charmbracelet/bubbletea) libraries
 
 ## License

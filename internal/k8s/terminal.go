@@ -3,7 +3,7 @@ package k8s
 import (
 	"context"
 
-	"github.com/gliderlabs/ssh"
+	"github.com/charmbracelet/ssh"
 	"k8s.io/client-go/tools/remotecommand"
 )
 

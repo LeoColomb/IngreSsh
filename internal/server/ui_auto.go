@@ -3,7 +3,7 @@ package server
 import (
 	"fmt"
 
-	"github.com/gliderlabs/ssh"
+	"github.com/charmbracelet/ssh"
 	"kuberstein.io/ingressh/internal/types"
 )
 

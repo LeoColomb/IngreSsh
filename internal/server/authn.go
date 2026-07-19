@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gliderlabs/ssh"
+	"github.com/charmbracelet/ssh"
 	log "github.com/sirupsen/logrus"
 	gossh "golang.org/x/crypto/ssh"
 
