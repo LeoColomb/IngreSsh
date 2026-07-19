@@ -3,15 +3,15 @@ package server
 import (
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
-	log "github.com/sirupsen/logrus"
 
 	"kuberstein.io/ingressh/internal/k8s"
 	"kuberstein.io/ingressh/internal/types"
 )
 
-// SessionMiddleware returns the SSH connection middleware for the SSH server.
-// The user is authorized at this moment, the list of authorized configurations
-// is stored in the session context.
+// SessionMiddleware routes the sessions that need no interactive selection:
+// sessions without a terminal and sessions whose login name hints the
+// complete target are connected to the first authorized target right away.
+// Everything else is passed through to the directory listing.
 func SessionMiddleware(kube *k8s.ClientImpl, conf *types.ServerConfig) wish.Middleware {
 	return func(next ssh.Handler) ssh.Handler {
 		return func(sess ssh.Session) {
@@ -19,83 +19,26 @@ func SessionMiddleware(kube *k8s.ClientImpl, conf *types.ServerConfig) wish.Midd
 			hint := types.SshTarget{}
 			hint.InitFromUsername(sess.User())
 
-			targetAuth := GetAuthz(GetSshConfigsFromCtx(sess.Context()), kube)
-
-			var target types.SshTarget
-			var targetPodConfig podSshConfig
-			var err error
-			_, _, isPty := sess.Pty()
-
-			// Interactive selection makes sense only when there is a terminal
-			// and the user didn't specify all the components of the target
-			// to connect to.
-			if isPty && !hint.IsComplete() {
-				target, targetPodConfig, err = interactive(sess, targetAuth, hint)
-			} else {
-				target, targetPodConfig, err = automatic(sess, targetAuth, hint)
+			if _, _, isPty := sess.Pty(); isPty && !hint.IsComplete() {
+				next(sess)
+				return
 			}
+
+			client, endpoints, err := newDirectoryClient(sess, kube, conf, hint)
 			if err != nil {
 				wish.Fatalf(sess, "Error: %s\n", err)
 				return
 			}
-			if !target.IsComplete() {
-				wish.Fatalln(sess, "No container selected")
+			if len(endpoints) == 0 {
+				wish.Fatalln(sess, "No authorized targets")
 				return
 			}
-
-			targetConfig := targetPodConfig.config
-			targetConfig.ApplyDefaults(*conf)
-			pod := targetPodConfig.pod
-
-			wish.Printf(sess, "Pod has been found. Connecting your SSH session to %s/%s container %s...\n",
-				pod.Namespace, pod.Name, target.Container)
-
-			// Session attach options vary depending on the mode
-			if targetConfig.Session == "Exec" {
-				command := targetConfig.Command
-				if len(sess.Command()) > 0 {
-					command = sess.Command()
-				}
-				if len(command) == 0 {
-					// In the Exec mode there is no default command to run like
-					// in the Debug mode, where the docker image entry point
-					// could be used.
-					wish.Fatalln(sess, "Command is not specified")
-					return
-				}
-				log.Infof("Executing %v in the container %s", command, target.Container)
-				if err := k8s.ExecInContainer(kube, &pod, target.Container, sess, command); err != nil {
-					log.Errorln(err)
-					wish.Fatalln(sess, "Failed to execute the command")
-					return
-				}
-			} else {
-				// debug session mode
-				pod, accessContainerName, err := k8s.AttachAccessContainer(
-					kube, &pod, target.Container, targetConfig)
-				if err != nil {
-					log.Errorln(err)
-					wish.Fatalln(sess, "Failed to attach the access container")
-					return
-				}
-
-				if len(sess.Command()) > 0 {
-					// Execute command in the running debug container
-					log.Infof("Executing %v in the ephemeral container %s", sess.Command(), accessContainerName)
-					err = k8s.ExecInContainer(kube, pod, accessContainerName, sess, sess.Command())
-				} else {
-					// Attach terminal session to the running debug container
-					log.Infof("Attaching SSH session into the container %s", accessContainerName)
-					err = k8s.AttachSshSessionTerminal(kube, pod, accessContainerName, sess)
-				}
-				if err != nil {
-					log.Errorln(err)
-					wish.Fatalln(sess, "Failed to set up the session")
-					return
-				}
+			if !hint.IsComplete() {
+				wish.Printf(sess, "Hello %s, you will be connected to the first authorized target\n", sess.User())
 			}
-
-			next(sess)
+			if err := client.For(endpoints[0]).Run(); err != nil {
+				wish.Fatalf(sess, "Error: %s\n", err)
+			}
 		}
 	}
 }

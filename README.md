@@ -211,6 +211,7 @@ The project is implemented with:
 
 * [kubebuilder](https://book.kubebuilder.io/)
 * CharmBracelet [wish](https://github.com/charmbracelet/wish) SSH libraries
+* CharmBracelet [wishlist](https://github.com/charmbracelet/wishlist) SSH directory listing
 * CharmBracelet [bubbletea](https://github.com/charmbracelet/bubbletea) libraries
 
 ## License

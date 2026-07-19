@@ -7,7 +7,9 @@ import (
 
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
+	"github.com/charmbracelet/wish/bubbletea"
 	"github.com/charmbracelet/wish/logging"
+	"github.com/muesli/termenv"
 	log "github.com/sirupsen/logrus"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -29,6 +31,7 @@ func Start(ctx context.Context) error {
 		wish.WithHostKeyPath(conf.HostKeyFile),
 		wish.WithPublicKeyAuth(PublicKeyAuthHandler),
 		wish.WithMiddleware(
+			bubbletea.MiddlewareWithProgramHandler(DirectoryHandler(&kube, conf), termenv.ANSI256),
 			SessionMiddleware(&kube, conf),
 			logging.MiddlewareWithLogger(log.StandardLogger()),
 		),
