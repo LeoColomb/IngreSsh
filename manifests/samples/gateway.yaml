@@ -1,0 +1,18 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: ingressh
+spec:
+  controllerName: kuberstein.io/ingressh
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ingressh
+spec:
+  gatewayClassName: ingressh
+  listeners:
+    - name: ssh
+      protocol: kuberstein.io/ssh
+      port: 8022

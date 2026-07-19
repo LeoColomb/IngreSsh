@@ -1,8 +1,8 @@
-package v1
+package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // AuthorizedKey is a structure joining user's login name and public key.
@@ -22,16 +22,17 @@ type AuthorizedKey struct {
 	Key string `json:"key"`
 }
 
-// IngreSshSpec defines the desired state of IngreSsh
-// Ingress for ssh configures access to pods through SSH
-// server running in the cluster. Users, authorized with their public keys,
-// can establish SSH connection with the pods accordingly to the configured
-// pods selectors.
-// Ingress SSH resources are namespace-scoped.
-type IngreSshSpec struct {
+// SSHRouteSpec defines the desired state of SSHRoute.
+// An SSHRoute configures access to pods through the SSH sessions served by
+// the Gateways (gateway.networking.k8s.io) it attaches to via parentRefs.
+// Users, authorized with their public keys, can establish SSH connection
+// with the pods accordingly to the configured pods selectors.
+// SSHRoute resources are namespace-scoped.
+type SSHRouteSpec struct {
+	gatewayv1.CommonRouteSpec `json:",inline"`
 
 	// Session specifies the mechanism to use for the SSH session of this
-	// ingress resource: exec in container (Exec) or ephemeral container (Debug)
+	// route: exec in container (Exec) or ephemeral container (Debug)
 	// Debug is the default.
 	// +kubebuilder:validation:Enum=Debug;Exec
 	// +optional
@@ -91,7 +92,7 @@ type IngreSshSpec struct {
 	// If not specified, all pods could be accessed by the authorized user.
 	// A user can specify one of the authorized pods as the login part
 	// of SSH connection string, like `ssh pod-name@cluster /bin/bash`
-	// As ingress SSH resources are namespace-scoped, selectors are matched
+	// As SSHRoute resources are namespace-scoped, selectors are matched
 	// against pods in the resource's namespace.
 	// +optional
 	Selectors []string `json:"selectors,omitempty"`
@@ -120,11 +121,9 @@ type IngreSshSpec struct {
 	AuthorizedKeys []AuthorizedKey `json:"authorizedKeys"`
 }
 
-// IngreSshStatus defines the observed state of IngreSsh
-type IngreSshStatus struct {
-	// A list of pointers to currently running jobs.
-	// +optional
-	Active []corev1.ObjectReference `json:"active,omitempty"`
+// SSHRouteStatus defines the observed state of SSHRoute
+type SSHRouteStatus struct {
+	gatewayv1.RouteStatus `json:",inline"`
 
 	// Information when was the last time the ssh session was opened.
 	// +optional
@@ -133,26 +132,25 @@ type IngreSshStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:path=ingresshes
 
-// IngreSsh is the Schema for the ingresshes API
-type IngreSsh struct {
+// SSHRoute is the Schema for the sshroutes API
+type SSHRoute struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   IngreSshSpec   `json:"spec,omitempty"`
-	Status IngreSshStatus `json:"status,omitempty"`
+	Spec   SSHRouteSpec   `json:"spec,omitempty"`
+	Status SSHRouteStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// IngreSshList contains a list of IngreSsh
-type IngreSshList struct {
+// SSHRouteList contains a list of SSHRoute
+type SSHRouteList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []IngreSsh `json:"items"`
+	Items           []SSHRoute `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&IngreSsh{}, &IngreSshList{})
+	SchemeBuilder.Register(&SSHRoute{}, &SSHRouteList{})
 }

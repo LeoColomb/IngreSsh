@@ -1,9 +1,11 @@
 ---
-apiVersion: ingress.kuberstein.io/v1
-kind: IngreSsh
+apiVersion: gateway.kuberstein.io/v1alpha1
+kind: SSHRoute
 metadata:
-  name: ingressh-exec
+  name: sshroute-exec
 spec:
+  parentRefs:
+    - name: ingressh
   session: Exec
   command:
     - /bin/sh

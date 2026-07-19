@@ -94,6 +94,13 @@ ingressh:
   hostKeyFile: ""
   debugImage: ""
 
+## Gateway API resources for the SSH endpoint
+## @param gateway.enabled Deploy a GatewayClass and a Gateway for the SSH endpoint
+## @param gateway.className Name of the deployed GatewayClass
+gateway:
+  enabled: true
+  className: ingressh
+
 ## @section Deployment parameters
 
 ## @param replicaCount Number of replicas to deploy

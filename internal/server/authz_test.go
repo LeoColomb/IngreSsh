@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	ingssh "kuberstein.io/ingressh/api/v1"
+	gw "kuberstein.io/ingressh/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -116,7 +116,7 @@ func TestPodAccess(t *testing.T) {
 
 	// Only pods with the "app=name" selector authorized
 	configNs1 := types.SshConfig{
-		IngreSshSpec: ingssh.IngreSshSpec{Selectors: []string{"app=name"}},
+		SSHRouteSpec: gw.SSHRouteSpec{Selectors: []string{"app=name"}},
 		Namespace:    "authorized-ns1",
 	}
 	authorizedConfigs := []*types.SshConfig{&configNs1}

@@ -14,7 +14,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	ingressv1 "kuberstein.io/ingressh/api/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	gw "kuberstein.io/ingressh/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -48,7 +50,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = ingressv1.AddToScheme(scheme.Scheme)
+	err = gatewayv1.Install(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = gw.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme

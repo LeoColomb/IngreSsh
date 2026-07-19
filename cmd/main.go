@@ -2,10 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
-
-	"golang.org/x/sync/errgroup"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -18,10 +15,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	//+kubebuilder:scaffold:imports
 
-	ing "kuberstein.io/ingressh/api/v1"
+	gw "kuberstein.io/ingressh/api/v1alpha1"
 	"kuberstein.io/ingressh/internal/controller"
 	"kuberstein.io/ingressh/internal/server"
 )
@@ -34,7 +32,8 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(ing.AddToScheme(scheme))
+	utilruntime.Must(gatewayv1.Install(scheme))
+	utilruntime.Must(gw.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -80,11 +79,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.IngreSshReconciler{
+	sshServers, err := server.NewManager()
+	if err != nil {
+		setupLog.Error(err, "unable to create SSH server manager")
+		os.Exit(1)
+	}
+	if err := mgr.Add(sshServers); err != nil {
+		setupLog.Error(err, "unable to register SSH server manager")
+		os.Exit(1)
+	}
+
+	if err = (&controller.GatewayClassReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "IngreSsh")
+		setupLog.Error(err, "unable to create controller", "controller", "GatewayClass")
+		os.Exit(1)
+	}
+	if err = (&controller.GatewayReconciler{
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Servers: sshServers,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Gateway")
+		os.Exit(1)
+	}
+	if err = (&controller.SSHRouteReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SSHRoute")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
@@ -98,26 +122,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := ctrl.SetupSignalHandler()
-	eg, egCtx := errgroup.WithContext(ctx)
-
 	setupLog.Info("Starting controller manager...")
-	eg.Go(func() error {
-		if err := mgr.Start(egCtx); err != nil {
-			return fmt.Errorf("problem running controller manager: %v", err)
-		}
-		return nil
-	})
-
-	setupLog.Info("Starting SSH server...")
-	eg.Go(func() error {
-		if err := server.Start(egCtx); err != nil {
-			return fmt.Errorf("problem running SSH server: %v", err)
-		}
-		return nil
-	})
-
-	if err := eg.Wait(); err != nil {
-		setupLog.Error(err, "problem starting services")
+	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+		setupLog.Error(err, "problem running controller manager")
+		os.Exit(1)
 	}
 }

@@ -62,8 +62,6 @@ spec:
           securityContext: {{- omit .Values.containerSecurityContext "enabled" | toYaml | nindent 12 }}
           {{- end }}
           env:
-            - name: SSH_BIND_ADDRESS
-              value: ":{{ .Values.containerPorts.ssh }}"
             {{- if .Values.ingressh.hostKeyFile }}
             - name: HOST_KEY_FILE
               value: {{ .Values.ingressh.hostKeyFile | quote }}

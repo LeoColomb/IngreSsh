@@ -13,8 +13,8 @@ resources:
     namespaced: true
   controller: true
   domain: kuberstein.io
-  group: ingress
-  kind: IngreSsh
-  path: kuberstein.io/ingressh/api/v1
-  version: v1
+  group: gateway
+  kind: SSHRoute
+  path: kuberstein.io/ingressh/api/v1alpha1
+  version: v1alpha1
 version: "3"

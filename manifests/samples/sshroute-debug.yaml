@@ -1,9 +1,11 @@
 ---
-apiVersion: ingress.kuberstein.io/v1
-kind: IngreSsh
+apiVersion: gateway.kuberstein.io/v1alpha1
+kind: SSHRoute
 metadata:
-  name: ingressh-debug
+  name: sshroute-debug
 spec:
+  parentRefs:
+    - name: ingressh
   session: Debug
   image: busybox
   selectors:

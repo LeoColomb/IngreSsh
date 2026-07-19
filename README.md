@@ -5,7 +5,8 @@
 
 The project implements a Kubernetes ingress controller, which routes incoming
 SSH connections to the shell sessions at authorized pods. Authentication and
-authorization are configured as IngreSsh Kubernetes resources.
+authorization are configured with the Kubernetes Gateway API: Gateways
+define the SSH endpoints and SSHRoute resources define the target pods.
 
 > [!Warning]
 > The code is new and may change or be removed in future versions. Please try it out and provide feedback.  
@@ -72,9 +73,42 @@ or run these configuration commands:
 helm show values oci://ghcr.io/kooper/ingressh/charts/ingressh
 ```
 
-### IngreSsh Resource
+### Gateway and GatewayClass Resources
 
-An elaborate description of the `IngreSsh` resources schema is available at [api/v1/ingressh_types.go](api/v1/ingressh_types.go).
+The SSH endpoints are defined with the standard
+[Gateway API](https://gateway-api.sigs.k8s.io/) resources, which must be
+installed in the cluster. A `GatewayClass` claims the IngreSsh controller,
+and each listener of a `Gateway` of that class runs an SSH server on the
+listener's port:
+
+```yaml
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: ingressh
+spec:
+  controllerName: kuberstein.io/ingressh
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ingressh
+spec:
+  gatewayClassName: ingressh
+  listeners:
+    - name: ssh
+      protocol: kuberstein.io/ssh     # TCP is accepted as well
+      port: 8022
+```
+
+The Helm chart deploys both by default (see the `gateway.*` values).
+
+### SSHRoute Resource
+
+An SSHRoute attaches to a Gateway with `parentRefs`, following the Gateway
+API route conventions. An elaborate description of the `SSHRoute` resources
+schema is available at [api/v1alpha1/sshroute_types.go](api/v1alpha1/sshroute_types.go).
 
 #### `Exec` Session
 
@@ -83,11 +117,13 @@ The session starts with exec of `/bin/sh` binary from the container.
 
 ```yaml
 ---
-apiVersion: ingress.kuberstein.io/v1
-kind: IngreSsh
+apiVersion: gateway.kuberstein.io/v1alpha1
+kind: SSHRoute
 metadata:
   name: ssh-exec
 spec:
+  parentRefs:
+    - name: ingressh                  # The Gateway serving this route
   session: Exec                       # Uses exec command
   command:
     - /bin/sh                         # Uses /bin/sh as the user's shell
@@ -106,11 +142,13 @@ in the Linux namespace of the target container. The default image entry point is
  
 ```yaml
 ---
-apiVersion: ingress.kuberstein.io/v1
-kind: IngreSsh
+apiVersion: gateway.kuberstein.io/v1alpha1
+kind: SSHRoute
 metadata:
   name: ssh-debug
 spec:
+  parentRefs:
+    - name: ingressh                  # The Gateway serving this route
   session: Debug                      # Uses debug attach command
   image: busybox                      # Starts busybox ephemeral container to attach the user's shell
   selectors:
@@ -154,18 +192,20 @@ enough when running from the source:
 kind create cluster
 
 # Install CRD:
-kubectl apply -f charts/ingressh/crds/ingresshes.yaml
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.1.0/standard-install.yaml
+kubectl apply -f charts/ingressh/crds/sshroutes.yaml
 
 # Run some pods:
 kubectl apply -f manifests/samples/nginx.yaml
 ```
 
 Then put your authorized key as an element in the spec.authorizedKeys list
-for sample IngreSsh resources in `manifests/samples/ingressh-exec.yaml` and
+for sample SSHRoute resources in `manifests/samples/sshroute-exec.yaml` and
 create the resource:
 
 ```sh
-kubectl apply -f manifests/samples/ingressh-exec.yaml
+kubectl apply -f manifests/samples/gateway.yaml
+kubectl apply -f manifests/samples/sshroute-exec.yaml
 ```
 
 Build and run the controller. This will run in the foreground, so switch to a
@@ -183,7 +223,7 @@ ssh 127.0.0.1 -p 30022
 
 ## Run with the docker image
 
-After installing CRD, creating some pods, and modifying IngreSsh resource
+After installing CRDs, creating some pods, and modifying SSHRoute resource
 putting your authorized key (see the previous section),
 build and push your image to the location specified by `IMG`:
 

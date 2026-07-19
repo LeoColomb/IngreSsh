@@ -1,14 +1,14 @@
 package types
 
 import (
-	ing "kuberstein.io/ingressh/api/v1"
+	gw "kuberstein.io/ingressh/api/v1alpha1"
 )
 
 // SshConfig configures an individual SSH route (or host if you
 // like), embedding enough information for the server to join authorization
 // rules with the target environment selection.
 type SshConfig struct {
-	ing.IngreSshSpec
+	gw.SSHRouteSpec
 	Name      string
 	Namespace string
 }

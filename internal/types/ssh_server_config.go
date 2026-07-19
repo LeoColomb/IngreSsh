@@ -4,16 +4,16 @@ import (
 	"os"
 )
 
-// ServerConfig contains cluster-wide SSH parameters
+// ServerConfig contains cluster-wide SSH parameters.
+// The bind addresses are not part of the configuration: they are defined by
+// the listeners of the Gateway resources.
 type ServerConfig struct {
-	BindAddress string
 	HostKeyFile string
 	DebugImage  string
 }
 
 func GetServerConf() *ServerConfig {
 	return &ServerConfig{
-		BindAddress: getEnv("SSH_BIND_ADDRESS", ":8022"),
 		HostKeyFile: getEnv("HOST_KEY_FILE", "/secret/ssh-privatekey"),
 		DebugImage:  getEnv("DEBUG_IMAGE", "busybox"),
 	}

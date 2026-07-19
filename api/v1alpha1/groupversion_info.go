@@ -1,7 +1,10 @@
-// Package v1 contains API Schema definitions for the ingress v1 API group
+// Package v1alpha1 contains API Schema definitions for the gateway v1alpha1
+// API group. The group follows the Kubernetes Gateway API conventions: an
+// SSHRoute attaches to a Gateway (gateway.networking.k8s.io) managed by the
+// IngreSsh controller.
 // +kubebuilder:object:generate=true
-// +groupName=ingress.kuberstein.io
-package v1
+// +groupName=gateway.kuberstein.io
+package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -10,7 +13,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "ingress.kuberstein.io", Version: "v1"}
+	GroupVersion = schema.GroupVersion{Group: "gateway.kuberstein.io", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

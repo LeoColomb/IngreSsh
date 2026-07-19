@@ -8,9 +8,9 @@ metadata:
   {{- end }}
 rules:
   - apiGroups:
-      - ingress.kuberstein.io
+      - gateway.kuberstein.io
     resources:
-      - ingresshes
+      - sshroutes
     verbs:
       - create
       - delete
@@ -20,15 +20,33 @@ rules:
       - update
       - watch
   - apiGroups:
-      - ingress.kuberstein.io
+      - gateway.kuberstein.io
     resources:
-      - ingresshes/finalizers
+      - sshroutes/finalizers
     verbs:
       - update
   - apiGroups:
-      - ingress.kuberstein.io
+      - gateway.kuberstein.io
     resources:
-      - ingresshes/status
+      - sshroutes/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - gateway.networking.k8s.io
+    resources:
+      - gatewayclasses
+      - gateways
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - gateway.networking.k8s.io
+    resources:
+      - gatewayclasses/status
+      - gateways/status
     verbs:
       - get
       - patch
